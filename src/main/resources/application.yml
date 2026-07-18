@@ -1,6 +1,11 @@
 server:
   port: 8080
 
+app:
+  name: @project.name@
+  version: @project.version@
+  build-time: @timestamp@
+
 spring:
   cache:
     type: simple
