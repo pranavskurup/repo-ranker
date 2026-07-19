@@ -28,6 +28,12 @@ public class GitHubApiClient {
     private final RestClient restClient;
     private final GitHubApiProperties properties;
 
+    /**
+     * Constructs a GitHubApiClient with the given RestClient builder and properties.
+     *
+     * @param restClientBuilder the RestClient builder to configure
+     * @param properties        the GitHub API configuration properties
+     */
     public GitHubApiClient(RestClient.Builder restClientBuilder, GitHubApiProperties properties) {
         this.properties = properties;
         this.restClient = restClientBuilder
@@ -37,6 +43,17 @@ public class GitHubApiClient {
                 .build();
     }
 
+    /**
+     * Searches GitHub repositories using the Search API.
+     *
+     * @param language    filter by programming language, or null for all languages
+     * @param createdAfter filter by creation date, or null for no date restriction
+     * @param page        the page number (1-based)
+     * @param perPage     the number of results per page (max 100)
+     * @return the search response containing matching repositories and total count
+     * @throws GitHubRateLimitExceededException if the API rate limit is exceeded
+     * @throws GitHubApiException               if any other HTTP error occurs
+     */
     public GitHubSearchResponse searchRepositories(String language, Instant createdAfter, int page, int perPage) {
         String query = buildQuery(language, createdAfter);
         String uri = UriComponentsBuilder.fromPath("/search/repositories")

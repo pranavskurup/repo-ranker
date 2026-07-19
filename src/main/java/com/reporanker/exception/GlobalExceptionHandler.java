@@ -22,6 +22,12 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    /**
+     * Handles GitHub API rate limit exceeded errors (HTTP 429).
+     *
+     * @param ex the rate limit exception
+     * @return error response with retry-after information
+     */
     @ExceptionHandler(GitHubRateLimitExceededException.class)
     public ResponseEntity<Map<String, Object>> handleRateLimitExceeded(GitHubRateLimitExceededException ex) {
         log.warn("GitHub API rate limit exceeded: {}", ex.getMessage());
@@ -36,6 +42,12 @@ public class GlobalExceptionHandler {
                 .body(body);
     }
 
+    /**
+     * Handles general GitHub API errors with the original HTTP status code.
+     *
+     * @param ex the API exception
+     * @return error response with the original status code
+     */
     @ExceptionHandler(GitHubApiException.class)
     public ResponseEntity<Map<String, Object>> handleGitHubApiException(GitHubApiException ex) {
         log.error("GitHub API error (status {}): {}", ex.getStatusCode(), ex.getMessage());
@@ -51,6 +63,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(body);
     }
 
+    /**
+     * Handles missing request parameter errors (HTTP 400).
+     *
+     * @param ex the missing parameter exception
+     * @return bad request error response
+     */
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<Map<String, Object>> handleMissingParam(MissingServletRequestParameterException ex) {
         Map<String, Object> body = Map.of(
@@ -61,6 +79,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    /**
+     * Handles type mismatch errors for request parameters (HTTP 400).
+     *
+     * @param ex the type mismatch exception
+     * @return bad request error response
+     */
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<Map<String, Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
         Map<String, Object> body = Map.of(
@@ -71,6 +95,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    /**
+     * Handles all other unexpected exceptions (HTTP 500).
+     *
+     * @param ex the unexpected exception
+     * @return internal server error response
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(Exception ex) {
         log.error("Unexpected error", ex);

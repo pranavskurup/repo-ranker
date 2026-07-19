@@ -20,6 +20,11 @@ public class HomeController {
     @Value("${app.build-time}")
     private String buildTime;
 
+    /**
+     * Returns application name, version, and build time.
+     *
+     * @return the home response with application metadata
+     */
     @GetMapping("/")
     public HomeResponse home() {
         return new HomeResponse(name, version, buildTime);

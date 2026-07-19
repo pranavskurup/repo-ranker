@@ -23,6 +23,13 @@ public class ScoringService {
     private static final double LAMBDA = 0.001;
     private static final double SCORE_SCALE = 100.0;
 
+    /**
+     * Scores and ranks the given repositories by popularity.
+     * Uses log-normalized stars (50%), forks (30%), and exponential decay recency (20%).
+     *
+     * @param repositories the list of GitHub repositories to score
+     * @return sorted list of scored repositories in descending score order
+     */
     public List<ScoredRepository> scoreAndRank(List<GitHubRepository> repositories) {
         if (repositories.isEmpty()) {
             return List.of();

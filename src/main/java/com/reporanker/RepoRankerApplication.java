@@ -14,6 +14,11 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 @EnableConfigurationProperties(GitHubApiProperties.class)
 public class RepoRankerApplication {
 
+    /**
+     * Application entry point.
+     *
+     * @param args command-line arguments
+     */
     public static void main(String[] args) {
         SpringApplication.run(RepoRankerApplication.class, args);
     }

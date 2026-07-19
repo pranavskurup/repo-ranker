@@ -21,10 +21,24 @@ public class RepositoryController {
 
     private final RepositoryService repositoryService;
 
+    /**
+     * Constructs a RepositoryController with the given service.
+     *
+     * @param repositoryService the service for searching and ranking repositories
+     */
     public RepositoryController(RepositoryService repositoryService) {
         this.repositoryService = repositoryService;
     }
 
+    /**
+     * Searches and ranks GitHub repositories with optional filters and pagination.
+     *
+     * @param language    filter by programming language (optional)
+     * @param createdAfter filter by creation date in ISO-8601 format (optional)
+     * @param page        the page number (default: 1)
+     * @param perPage     the number of results per page (default: 30, max: 100)
+     * @return paginated response containing scored repositories
+     */
     @GetMapping
     public PaginatedResponse<ScoredRepository> search(
             @RequestParam(required = false) String language,

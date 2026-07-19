@@ -18,6 +18,15 @@ public record PaginatedResponse<T>(
         @JsonProperty("has_next") boolean hasNext,
         @JsonProperty("has_previous") boolean hasPrevious
 ) {
+    /**
+     * Creates a paginated response with computed pagination metadata.
+     *
+     * @param items       the list of items for the current page
+     * @param totalCount  the total number of matching items
+     * @param currentPage the current page number (1-based)
+     * @param perPage     the number of items per page
+     * @return a new PaginatedResponse with computed totalPages, hasNext, and hasPrevious
+     */
     public static <T> PaginatedResponse<T> of(List<T> items, int totalCount, int currentPage, int perPage) {
         int totalPages = perPage > 0 ? (int) Math.ceil((double) totalCount / perPage) : 0;
         return new PaginatedResponse<>(items, totalCount, currentPage, perPage, totalPages, currentPage < totalPages, currentPage > 1);

@@ -10,6 +10,11 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class RestClientConfig {
 
+    /**
+     * Creates a {@link RestClient.Builder} bean for external HTTP calls.
+     *
+     * @return a new RestClient builder instance
+     */
     @Bean
     public RestClient.Builder restClientBuilder() {
         return RestClient.builder();
