@@ -166,4 +166,27 @@ class GitHubApiClientTest {
         verify(uriSpec).uri(uriCaptor.capture());
         assertThat(uriCaptor.getValue()).doesNotContain("language");
     }
+
+    @Test
+    void searchRepositoriesShouldDefaultToStarsQueryWhenNoFilters() {
+        when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(new GitHubSearchResponse(0, false, List.of()));
+
+        gitHubApiClient.searchRepositories(null, null, 1, 30);
+
+        ArgumentCaptor<String> uriCaptor = ArgumentCaptor.forClass(String.class);
+        verify(uriSpec).uri(uriCaptor.capture());
+        assertThat(uriCaptor.getValue()).contains("q=stars:>0");
+    }
+
+    @Test
+    void searchRepositoriesShouldNotEncodeGreaterThanSign() {
+        when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(new GitHubSearchResponse(0, false, List.of()));
+
+        gitHubApiClient.searchRepositories("Java", Instant.parse("2024-01-01T00:00:00Z"), 1, 30);
+
+        ArgumentCaptor<String> uriCaptor = ArgumentCaptor.forClass(String.class);
+        verify(uriSpec).uri(uriCaptor.capture());
+        assertThat(uriCaptor.getValue()).contains("created:>2024-01-01");
+        assertThat(uriCaptor.getValue()).doesNotContain("%3E");
+    }
 }

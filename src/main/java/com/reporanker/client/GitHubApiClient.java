@@ -38,7 +38,7 @@ public class GitHubApiClient {
                 .queryParam("order", "desc")
                 .queryParam("page", page)
                 .queryParam("per_page", perPage)
-                .toUriString();
+                .build(false).toUriString();
 
         log.debug("Fetching GitHub repositories: {}", uri);
 
@@ -68,6 +68,9 @@ public class GitHubApiClient {
         if (createdAfter != null) {
             if (!query.isEmpty()) query.append('+');
             query.append("created:>").append(createdAfter.toString(), 0, 10);
+        }
+        if (query.isEmpty()) {
+            query.append("stars:>0");
         }
         return query.toString();
     }
