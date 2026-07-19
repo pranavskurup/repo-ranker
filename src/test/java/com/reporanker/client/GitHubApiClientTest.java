@@ -3,16 +3,21 @@ package com.reporanker.client;
 import com.reporanker.config.GitHubApiProperties;
 import com.reporanker.dto.github.GitHubRepository;
 import com.reporanker.dto.github.GitHubSearchResponse;
+import com.reporanker.exception.GitHubApiException;
+import com.reporanker.exception.GitHubRateLimitExceededException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -191,5 +196,102 @@ class GitHubApiClientTest {
         verify(uriSpec).uri(uriCaptor.capture());
         assertThat(uriCaptor.getValue()).contains("created:>2024-01-01");
         assertThat(uriCaptor.getValue()).doesNotContain("%3E");
+    }
+
+    @Test
+    void searchRepositoriesShouldThrowGitHubApiExceptionOn404() {
+        RestClientResponseException ex = mock(RestClientResponseException.class);
+        when(ex.getStatusCode()).thenReturn(HttpStatus.NOT_FOUND);
+        when(ex.getResponseBodyAsString()).thenReturn("{\"message\":\"Not Found\"}");
+        when(responseSpec.body(GitHubSearchResponse.class)).thenThrow(ex);
+
+        assertThatThrownBy(() -> gitHubApiClient.searchRepositories("Java", null, 1, 30))
+                .isInstanceOf(GitHubApiException.class)
+                .hasMessageContaining("GitHub API error")
+                .hasMessageContaining("Not Found");
+    }
+
+    @Test
+    void searchRepositoriesShouldThrowGitHubApiExceptionOn422() {
+        RestClientResponseException ex = mock(RestClientResponseException.class);
+        when(ex.getStatusCode()).thenReturn(HttpStatus.UNPROCESSABLE_ENTITY);
+        when(ex.getResponseBodyAsString()).thenReturn("{\"message\":\"Validation Failed\"}");
+        when(responseSpec.body(GitHubSearchResponse.class)).thenThrow(ex);
+
+        assertThatThrownBy(() -> gitHubApiClient.searchRepositories("Java", null, 1, 30))
+                .isInstanceOf(GitHubApiException.class)
+                .hasMessageContaining("GitHub API error")
+                .hasMessageContaining("Validation Failed");
+    }
+
+    @Test
+    void searchRepositoriesShouldThrowGitHubApiExceptionOn500() {
+        RestClientResponseException ex = mock(RestClientResponseException.class);
+        when(ex.getStatusCode()).thenReturn(HttpStatus.INTERNAL_SERVER_ERROR);
+        when(ex.getResponseBodyAsString()).thenReturn("{\"message\":\"Internal Server Error\"}");
+        when(responseSpec.body(GitHubSearchResponse.class)).thenThrow(ex);
+
+        assertThatThrownBy(() -> gitHubApiClient.searchRepositories("Java", null, 1, 30))
+                .isInstanceOf(GitHubApiException.class)
+                .hasMessageContaining("GitHub API error")
+                .hasMessageContaining("Internal Server Error");
+    }
+
+    @Test
+    void searchRepositoriesShouldThrowRateLimitExceptionOn403WithZeroRemaining() {
+        RestClientResponseException ex = mock(RestClientResponseException.class);
+        when(ex.getStatusCode()).thenReturn(HttpStatus.FORBIDDEN);
+        when(ex.getResponseBodyAsString()).thenReturn("{\"message\":\"API rate limit exceeded\"}");
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("X-RateLimit-Remaining", "0");
+        headers.set("X-RateLimit-Reset", String.valueOf(Instant.now().plusSeconds(300).getEpochSecond()));
+        when(ex.getResponseHeaders()).thenReturn(headers);
+        when(responseSpec.body(GitHubSearchResponse.class)).thenThrow(ex);
+
+        assertThatThrownBy(() -> gitHubApiClient.searchRepositories("Java", null, 1, 30))
+                .isInstanceOf(GitHubRateLimitExceededException.class)
+                .hasMessageContaining("rate limit exceeded");
+    }
+
+    @Test
+    void searchRepositoriesShouldThrowGitHubApiExceptionOn403WithoutRateLimitHeaders() {
+        RestClientResponseException ex = mock(RestClientResponseException.class);
+        when(ex.getStatusCode()).thenReturn(HttpStatus.FORBIDDEN);
+        when(ex.getResponseBodyAsString()).thenReturn("{\"message\":\"Forbidden\"}");
+        HttpHeaders headers = new HttpHeaders();
+        when(ex.getResponseHeaders()).thenReturn(headers);
+        when(responseSpec.body(GitHubSearchResponse.class)).thenThrow(ex);
+
+        assertThatThrownBy(() -> gitHubApiClient.searchRepositories("Java", null, 1, 30))
+                .isInstanceOf(GitHubApiException.class)
+                .hasMessageContaining("GitHub API error")
+                .hasMessageContaining("Forbidden");
+    }
+
+    @Test
+    void searchRepositoriesShouldHandleEmptyResponseBody() {
+        RestClientResponseException ex = mock(RestClientResponseException.class);
+        when(ex.getStatusCode()).thenReturn(HttpStatus.BAD_REQUEST);
+        when(ex.getResponseBodyAsString()).thenReturn("");
+        when(responseSpec.body(GitHubSearchResponse.class)).thenThrow(ex);
+
+        assertThatThrownBy(() -> gitHubApiClient.searchRepositories("Java", null, 1, 30))
+                .isInstanceOf(GitHubApiException.class)
+                .hasMessageContaining("Unknown GitHub API error");
+    }
+
+    @Test
+    void searchRepositoriesShouldTruncateLongErrorMessage() {
+        RestClientResponseException ex = mock(RestClientResponseException.class);
+        when(ex.getStatusCode()).thenReturn(HttpStatus.BAD_REQUEST);
+        when(ex.getResponseBodyAsString()).thenReturn("A".repeat(300));
+        when(responseSpec.body(GitHubSearchResponse.class)).thenThrow(ex);
+
+        assertThatThrownBy(() -> gitHubApiClient.searchRepositories("Java", null, 1, 30))
+                .isInstanceOf(GitHubApiException.class)
+                .satisfies(ex2 -> {
+                    String msg = ex2.getMessage();
+                    assertThat(msg.length()).isLessThan(300);
+                });
     }
 }
