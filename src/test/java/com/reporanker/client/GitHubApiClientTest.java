@@ -1,6 +1,7 @@
 package com.reporanker.client;
 
 import com.reporanker.config.GitHubApiProperties;
+import com.reporanker.dto.github.EnrichedSearchResponse;
 import com.reporanker.dto.github.GitHubRepository;
 import com.reporanker.dto.github.GitHubSearchResponse;
 import com.reporanker.exception.GitHubApiException;
@@ -29,6 +30,8 @@ class GitHubApiClientTest {
     private RestClient.ResponseSpec responseSpec;
     private GitHubApiClient gitHubApiClient;
 
+    private static final GitHubSearchResponse EMPTY_RESPONSE = new GitHubSearchResponse(0, false, List.of());
+
     @BeforeEach
     void setUp() {
         restClient = mock(RestClient.class);
@@ -49,6 +52,7 @@ class GitHubApiClientTest {
         when(uriSpec.uri(any(String.class))).thenReturn(headersSpec);
         when(headersSpec.headers(any())).thenReturn(headersSpec);
         when(headersSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(EMPTY_RESPONSE);
     }
 
     @Test
@@ -56,23 +60,28 @@ class GitHubApiClientTest {
         GitHubRepository repo = new GitHubRepository(1L, "test-repo", "owner/test-repo",
                 "https://github.com/owner/test-repo", 100, 20, "Java",
                 Instant.parse("2024-01-15T10:30:00Z"), Instant.parse("2024-06-01T14:20:00Z"));
-        GitHubSearchResponse searchResponse = new GitHubSearchResponse(1, false, List.of(repo));
-        when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(searchResponse);
+        GitHubSearchResponse apiResponse = new GitHubSearchResponse(1, false, List.of(repo));
+        when(responseSpec.body(GitHubSearchResponse.class))
+                .thenReturn(apiResponse)
+                .thenReturn(apiResponse)
+                .thenReturn(apiResponse);
 
-        GitHubSearchResponse result = gitHubApiClient.searchRepositories("Java",
+        EnrichedSearchResponse result = gitHubApiClient.searchRepositories("Java",
                 Instant.parse("2024-01-01T00:00:00Z"), 1, 30);
 
         assertThat(result.items()).hasSize(1);
         assertThat(result.items().getFirst().name()).isEqualTo("test-repo");
         assertThat(result.items().getFirst().stars()).isEqualTo(100);
         assertThat(result.totalCount()).isEqualTo(1);
+        assertThat(result.maxStars()).isEqualTo(100);
+        assertThat(result.maxForks()).isEqualTo(20);
     }
 
     @Test
     void searchRepositoriesShouldReturnEmptyListWhenResponseIsNull() {
         when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(null);
 
-        GitHubSearchResponse result = gitHubApiClient.searchRepositories("Java",
+        EnrichedSearchResponse result = gitHubApiClient.searchRepositories("Java",
                 Instant.parse("2024-01-01T00:00:00Z"), 1, 30);
 
         assertThat(result.items()).isEmpty();
@@ -82,9 +91,12 @@ class GitHubApiClientTest {
     @Test
     void searchRepositoriesShouldReturnEmptyListWhenItemsIsNull() {
         GitHubSearchResponse searchResponse = new GitHubSearchResponse(0, false, null);
-        when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(searchResponse);
+        when(responseSpec.body(GitHubSearchResponse.class))
+                .thenReturn(EMPTY_RESPONSE)
+                .thenReturn(EMPTY_RESPONSE)
+                .thenReturn(searchResponse);
 
-        GitHubSearchResponse result = gitHubApiClient.searchRepositories("Java",
+        EnrichedSearchResponse result = gitHubApiClient.searchRepositories("Java",
                 Instant.parse("2024-01-01T00:00:00Z"), 1, 30);
 
         assertThat(result.items()).isEmpty();
@@ -92,53 +104,54 @@ class GitHubApiClientTest {
 
     @Test
     void searchRepositoriesShouldBuildQueryWithLanguageOnly() {
-        when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(new GitHubSearchResponse(0, false, List.of()));
-
         gitHubApiClient.searchRepositories("Java", null, 1, 30);
 
         ArgumentCaptor<String> uriCaptor = ArgumentCaptor.forClass(String.class);
-        verify(uriSpec).uri(uriCaptor.capture());
-        assertThat(uriCaptor.getValue()).contains("q=language:Java");
-        assertThat(uriCaptor.getValue()).doesNotContain("created");
+        verify(uriSpec, times(3)).uri(uriCaptor.capture());
+        List<String> allUris = uriCaptor.getAllValues();
+        for (String uri : allUris) {
+            assertThat(uri).contains("q=language:Java");
+            assertThat(uri).doesNotContain("created");
+        }
     }
 
     @Test
     void searchRepositoriesShouldBuildQueryWithCreatedAfterOnly() {
-        when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(new GitHubSearchResponse(0, false, List.of()));
-
         gitHubApiClient.searchRepositories(null, Instant.parse("2024-01-01T00:00:00Z"), 1, 30);
 
         ArgumentCaptor<String> uriCaptor = ArgumentCaptor.forClass(String.class);
-        verify(uriSpec).uri(uriCaptor.capture());
-        assertThat(uriCaptor.getValue()).contains("created");
-        assertThat(uriCaptor.getValue()).doesNotContain("language");
+        verify(uriSpec, times(3)).uri(uriCaptor.capture());
+        List<String> allUris = uriCaptor.getAllValues();
+        for (String uri : allUris) {
+            assertThat(uri).contains("created");
+            assertThat(uri).doesNotContain("language");
+        }
     }
 
     @Test
     void searchRepositoriesShouldBuildQueryWithBothFilters() {
-        when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(new GitHubSearchResponse(0, false, List.of()));
-
         gitHubApiClient.searchRepositories("Python", Instant.parse("2024-06-01T00:00:00Z"), 2, 10);
 
         ArgumentCaptor<String> uriCaptor = ArgumentCaptor.forClass(String.class);
-        verify(uriSpec).uri(uriCaptor.capture());
-        String uri = uriCaptor.getValue();
-        assertThat(uri).contains("language:Python");
-        assertThat(uri).contains("created");
-        assertThat(uri).contains("page=2");
-        assertThat(uri).contains("per_page=10");
-        assertThat(uri).contains("sort=stars");
-        assertThat(uri).contains("order=desc");
+        verify(uriSpec, times(3)).uri(uriCaptor.capture());
+        List<String> allUris = uriCaptor.getAllValues();
+        for (String uri : allUris) {
+            assertThat(uri).contains("language:Python");
+            assertThat(uri).contains("created");
+        }
+        String mainUri = allUris.get(2);
+        assertThat(mainUri).contains("page=2");
+        assertThat(mainUri).contains("per_page=10");
+        assertThat(mainUri).contains("sort=stars");
+        assertThat(mainUri).contains("order=desc");
     }
 
     @Test
     void searchRepositoriesShouldSetBearerToken() {
-        when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(new GitHubSearchResponse(0, false, List.of()));
-
         gitHubApiClient.searchRepositories("Java", null, 1, 30);
 
         ArgumentCaptor<java.util.function.Consumer<HttpHeaders>> headerCaptor = ArgumentCaptor.forClass(java.util.function.Consumer.class);
-        verify(headersSpec).headers(headerCaptor.capture());
+        verify(headersSpec, times(3)).headers(headerCaptor.capture());
         HttpHeaders captured = new HttpHeaders();
         headerCaptor.getValue().accept(captured);
         assertThat(captured.get("Authorization")).containsExactly("Bearer test-token");
@@ -152,50 +165,98 @@ class GitHubApiClientTest {
         GitHubRepository repo2 = new GitHubRepository(2L, "repo-2", "owner/repo-2",
                 "https://github.com/owner/repo-2", 300, 30, "Java",
                 Instant.parse("2024-02-20T08:00:00Z"), Instant.parse("2024-07-15T12:00:00Z"));
-        GitHubSearchResponse searchResponse = new GitHubSearchResponse(2, false, List.of(repo1, repo2));
-        when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(searchResponse);
+        GitHubSearchResponse apiResponse = new GitHubSearchResponse(2, false, List.of(repo1, repo2));
+        when(responseSpec.body(GitHubSearchResponse.class))
+                .thenReturn(apiResponse)
+                .thenReturn(apiResponse)
+                .thenReturn(apiResponse);
 
-        GitHubSearchResponse result = gitHubApiClient.searchRepositories("Java",
+        EnrichedSearchResponse result = gitHubApiClient.searchRepositories("Java",
                 Instant.parse("2024-01-01T00:00:00Z"), 1, 30);
 
         assertThat(result.items()).hasSize(2);
         assertThat(result.items().get(0).name()).isEqualTo("repo-1");
         assertThat(result.items().get(1).name()).isEqualTo("repo-2");
         assertThat(result.totalCount()).isEqualTo(2);
+        assertThat(result.maxStars()).isEqualTo(500);
+        assertThat(result.maxForks()).isEqualTo(50);
     }
 
     @Test
     void searchRepositoriesShouldHandleBlankLanguage() {
-        when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(new GitHubSearchResponse(0, false, List.of()));
-
         gitHubApiClient.searchRepositories("  ", Instant.parse("2024-01-01T00:00:00Z"), 1, 30);
 
         ArgumentCaptor<String> uriCaptor = ArgumentCaptor.forClass(String.class);
-        verify(uriSpec).uri(uriCaptor.capture());
-        assertThat(uriCaptor.getValue()).doesNotContain("language");
+        verify(uriSpec, times(3)).uri(uriCaptor.capture());
+        List<String> allUris = uriCaptor.getAllValues();
+        for (String uri : allUris) {
+            assertThat(uri).doesNotContain("language");
+        }
     }
 
     @Test
     void searchRepositoriesShouldDefaultToStarsQueryWhenNoFilters() {
-        when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(new GitHubSearchResponse(0, false, List.of()));
-
         gitHubApiClient.searchRepositories(null, null, 1, 30);
 
         ArgumentCaptor<String> uriCaptor = ArgumentCaptor.forClass(String.class);
-        verify(uriSpec).uri(uriCaptor.capture());
-        assertThat(uriCaptor.getValue()).contains("q=stars:>0");
+        verify(uriSpec, times(3)).uri(uriCaptor.capture());
+        List<String> allUris = uriCaptor.getAllValues();
+        for (String uri : allUris) {
+            assertThat(uri).contains("q=stars:>0");
+        }
     }
 
     @Test
     void searchRepositoriesShouldNotEncodeGreaterThanSign() {
-        when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(new GitHubSearchResponse(0, false, List.of()));
-
         gitHubApiClient.searchRepositories("Java", Instant.parse("2024-01-01T00:00:00Z"), 1, 30);
 
         ArgumentCaptor<String> uriCaptor = ArgumentCaptor.forClass(String.class);
-        verify(uriSpec).uri(uriCaptor.capture());
-        assertThat(uriCaptor.getValue()).contains("created:>2024-01-01");
-        assertThat(uriCaptor.getValue()).doesNotContain("%3E");
+        verify(uriSpec, times(3)).uri(uriCaptor.capture());
+        List<String> allUris = uriCaptor.getAllValues();
+        for (String uri : allUris) {
+            assertThat(uri).contains("created:>2024-01-01");
+            assertThat(uri).doesNotContain("%3E");
+        }
+    }
+
+    @Test
+    void searchRepositoriesShouldUseForksSortForMaxForks() {
+        gitHubApiClient.searchRepositories("Java", null, 1, 30);
+
+        ArgumentCaptor<String> uriCaptor = ArgumentCaptor.forClass(String.class);
+        verify(uriSpec, times(3)).uri(uriCaptor.capture());
+        List<String> allUris = uriCaptor.getAllValues();
+        assertThat(allUris.get(0)).contains("sort=stars");
+        assertThat(allUris.get(1)).contains("sort=forks");
+        assertThat(allUris.get(2)).contains("sort=stars");
+    }
+
+    @Test
+    void searchRepositoriesShouldUsePerPage1ForMaxQueries() {
+        gitHubApiClient.searchRepositories("Java", null, 1, 30);
+
+        ArgumentCaptor<String> uriCaptor = ArgumentCaptor.forClass(String.class);
+        verify(uriSpec, times(3)).uri(uriCaptor.capture());
+        List<String> allUris = uriCaptor.getAllValues();
+        assertThat(allUris.get(0)).contains("per_page=1");
+        assertThat(allUris.get(1)).contains("per_page=1");
+        assertThat(allUris.get(2)).contains("per_page=30");
+    }
+
+    @Test
+    void searchRepositoriesShouldReturnZeroMaxWhenMaxQueriesFail() {
+        RestClientResponseException maxEx = mock(RestClientResponseException.class);
+        when(maxEx.getStatusCode()).thenReturn(HttpStatus.INTERNAL_SERVER_ERROR);
+        when(maxEx.getResponseBodyAsString()).thenReturn("{\"message\":\"error\"}");
+        when(responseSpec.body(GitHubSearchResponse.class))
+                .thenThrow(maxEx)
+                .thenReturn(EMPTY_RESPONSE)
+                .thenReturn(EMPTY_RESPONSE);
+
+        EnrichedSearchResponse result = gitHubApiClient.searchRepositories("Java", null, 1, 30);
+
+        assertThat(result.maxStars()).isEqualTo(0);
+        assertThat(result.maxForks()).isEqualTo(0);
     }
 
     @Test

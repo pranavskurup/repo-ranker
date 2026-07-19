@@ -1,7 +1,6 @@
 package com.reporanker;
 
 import com.reporanker.config.GitHubApiProperties;
-import com.reporanker.config.ScoringProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -12,7 +11,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
  * including stars, forks, and recency of activity.
  */
 @SpringBootApplication
-@EnableConfigurationProperties({GitHubApiProperties.class, ScoringProperties.class})
+@EnableConfigurationProperties(GitHubApiProperties.class)
 public class RepoRankerApplication {
 
     /**

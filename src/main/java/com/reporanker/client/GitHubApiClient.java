@@ -1,6 +1,7 @@
 package com.reporanker.client;
 
 import com.reporanker.config.GitHubApiProperties;
+import com.reporanker.dto.github.EnrichedSearchResponse;
 import com.reporanker.dto.github.GitHubSearchResponse;
 import com.reporanker.exception.GitHubApiException;
 import com.reporanker.exception.GitHubRateLimitExceededException;
@@ -50,12 +51,15 @@ public class GitHubApiClient {
      * @param createdAfter filter by creation date, or null for no date restriction
      * @param page        the page number (1-based)
      * @param perPage     the number of results per page (max 100)
-     * @return the search response containing matching repositories and total count
+     * @return the enriched search response containing matching repositories, total count, and max values
      * @throws GitHubRateLimitExceededException if the API rate limit is exceeded
      * @throws GitHubApiException               if any other HTTP error occurs
      */
-    public GitHubSearchResponse searchRepositories(String language, Instant createdAfter, int page, int perPage) {
+    public EnrichedSearchResponse searchRepositories(String language, Instant createdAfter, int page, int perPage) {
         String query = buildQuery(language, createdAfter);
+        int maxStars = fetchMaxStars(query);
+        int maxForks = fetchMaxForks(query);
+
         String uri = UriComponentsBuilder.fromPath("/search/repositories")
                 .queryParam("q", query)
                 .queryParam("sort", "stars")
@@ -66,7 +70,7 @@ public class GitHubApiClient {
 
         log.debug("Fetching GitHub repositories: {}", uri);
 
-        GitHubSearchResponse response;
+        GitHubSearchResponse response = null;
         try {
             response = restClient.get()
                     .uri(uri)
@@ -79,19 +83,61 @@ public class GitHubApiClient {
                     .body(GitHubSearchResponse.class);
         } catch (RestClientResponseException ex) {
             handleHttpError(ex);
-            return new GitHubSearchResponse(0, false, List.of());
         }
 
-        if (response == null) {
-            return new GitHubSearchResponse(0, false, List.of());
+        if (response == null || response.items() == null) {
+            return new EnrichedSearchResponse(0, false, List.of(), maxStars, maxForks);
         }
 
-        if (response.items() == null) {
-            return new GitHubSearchResponse(response.totalCount(), false, List.of());
-        }
+        log.debug("Found {} repositories (total: {}, maxStars: {}, maxForks: {})",
+                response.items().size(), response.totalCount(), maxStars, maxForks);
+        return new EnrichedSearchResponse(response.totalCount(), response.incompleteResults(),
+                response.items(), maxStars, maxForks);
+    }
 
-        log.debug("Found {} repositories (total: {})", response.items().size(), response.totalCount());
-        return response;
+    private int fetchMaxStars(String query) {
+        String uri = UriComponentsBuilder.fromPath("/search/repositories")
+                .queryParam("q", query)
+                .queryParam("sort", "stars")
+                .queryParam("order", "desc")
+                .queryParam("per_page", 1)
+                .build(false).toUriString();
+        return fetchMaxValue(uri, "maxStars");
+    }
+
+    private int fetchMaxForks(String query) {
+        String uri = UriComponentsBuilder.fromPath("/search/repositories")
+                .queryParam("q", query)
+                .queryParam("sort", "forks")
+                .queryParam("order", "desc")
+                .queryParam("per_page", 1)
+                .build(false).toUriString();
+        return fetchMaxValue(uri, "maxForks");
+    }
+
+    private int fetchMaxValue(String uri, String label) {
+        try {
+            GitHubSearchResponse response = restClient.get()
+                    .uri(uri)
+                    .headers(h -> {
+                        if (properties.token() != null && !properties.token().isBlank()) {
+                            h.setBearerAuth(properties.token());
+                        }
+                    })
+                    .retrieve()
+                    .body(GitHubSearchResponse.class);
+
+            if (response != null && response.items() != null && !response.items().isEmpty()) {
+                int value = "maxStars".equals(label)
+                        ? response.items().getFirst().stars()
+                        : response.items().getFirst().forks();
+                log.debug("Fetched {}: {}", label, value);
+                return value;
+            }
+        } catch (RestClientResponseException ex) {
+            log.warn("Failed to fetch {}: {}", label, ex.getMessage());
+        }
+        return 0;
     }
 
     private void handleHttpError(RestClientResponseException ex) {

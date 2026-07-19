@@ -1,8 +1,7 @@
 package com.reporanker.service;
 
 import com.reporanker.client.GitHubApiClient;
-import com.reporanker.dto.github.GitHubRepository;
-import com.reporanker.dto.github.GitHubSearchResponse;
+import com.reporanker.dto.github.EnrichedSearchResponse;
 import com.reporanker.dto.response.PaginatedResponse;
 import com.reporanker.dto.response.ScoredRepository;
 import org.slf4j.Logger;
@@ -48,8 +47,9 @@ public class RepositoryService {
         log.debug("Searching repositories: language={}, createdAfter={}, page={}, perPage={}",
                 language, createdAfter, page, perPage);
 
-        GitHubSearchResponse searchResponse = gitHubApiClient.searchRepositories(language, createdAfter, page, perPage);
-        List<ScoredRepository> scored = scoringService.scoreAndRank(searchResponse.items());
+        EnrichedSearchResponse searchResponse = gitHubApiClient.searchRepositories(language, createdAfter, page, perPage);
+        List<ScoredRepository> scored = scoringService.scoreAndRank(searchResponse.items(),
+                searchResponse.maxStars(), searchResponse.maxForks());
         return PaginatedResponse.of(scored, searchResponse.totalCount(), page, perPage);
     }
 }

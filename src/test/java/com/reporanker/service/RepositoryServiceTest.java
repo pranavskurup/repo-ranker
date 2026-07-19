@@ -2,7 +2,7 @@ package com.reporanker.service;
 
 import com.reporanker.client.GitHubApiClient;
 import com.reporanker.dto.github.GitHubRepository;
-import com.reporanker.dto.github.GitHubSearchResponse;
+import com.reporanker.dto.github.EnrichedSearchResponse;
 import com.reporanker.dto.response.PaginatedResponse;
 import com.reporanker.dto.response.ScoredRepository;
 import com.reporanker.exception.GitHubApiException;
@@ -49,10 +49,10 @@ class RepositoryServiceTest {
                 "https://github.com/owner/repo-1", 100, 10, "Java",
                 repo.createdAt(), repo.updatedAt(), 85.5);
 
-        GitHubSearchResponse searchResponse = new GitHubSearchResponse(1, false, List.of(repo));
+        EnrichedSearchResponse searchResponse = new EnrichedSearchResponse(1, false, List.of(repo), 100, 10);
         when(gitHubApiClient.searchRepositories(eq("Java"), eq(createdAfter), eq(1), eq(30)))
                 .thenReturn(searchResponse);
-        when(scoringService.scoreAndRank(List.of(repo)))
+        when(scoringService.scoreAndRank(List.of(repo), 100, 10))
                 .thenReturn(List.of(scored));
 
         PaginatedResponse<ScoredRepository> result = repositoryService.searchAndRank("Java", createdAfter, 1, 30);
@@ -65,15 +65,15 @@ class RepositoryServiceTest {
         assertThat(result.hasNext()).isFalse();
         assertThat(result.hasPrevious()).isFalse();
         verify(gitHubApiClient).searchRepositories("Java", createdAfter, 1, 30);
-        verify(scoringService).scoreAndRank(List.of(repo));
+        verify(scoringService).scoreAndRank(List.of(repo), 100, 10);
     }
 
     @Test
     void searchAndRankShouldReturnEmptyListWhenNoResults() {
-        GitHubSearchResponse searchResponse = new GitHubSearchResponse(0, false, List.of());
+        EnrichedSearchResponse searchResponse = new EnrichedSearchResponse(0, false, List.of(), 0, 0);
         when(gitHubApiClient.searchRepositories(isNull(), isNull(), eq(1), eq(30)))
                 .thenReturn(searchResponse);
-        when(scoringService.scoreAndRank(List.of()))
+        when(scoringService.scoreAndRank(List.of(), 0, 0))
                 .thenReturn(List.of());
 
         PaginatedResponse<ScoredRepository> result = repositoryService.searchAndRank(null, null, 1, 30);
@@ -86,10 +86,10 @@ class RepositoryServiceTest {
     @Test
     void searchAndRankShouldPassPaginationParams() {
         Instant createdAfter = Instant.now().minus(30, ChronoUnit.DAYS);
-        GitHubSearchResponse searchResponse = new GitHubSearchResponse(55, false, List.of());
+        EnrichedSearchResponse searchResponse = new EnrichedSearchResponse(55, false, List.of(), 0, 0);
         when(gitHubApiClient.searchRepositories(eq("Python"), eq(createdAfter), eq(2), eq(10)))
                 .thenReturn(searchResponse);
-        when(scoringService.scoreAndRank(any()))
+        when(scoringService.scoreAndRank(any(), anyInt(), anyInt()))
                 .thenReturn(List.of());
 
         PaginatedResponse<ScoredRepository> result = repositoryService.searchAndRank("Python", createdAfter, 2, 10);
@@ -105,10 +105,10 @@ class RepositoryServiceTest {
 
     @Test
     void searchAndRankShouldComputeTotalPagesCorrectly() {
-        GitHubSearchResponse searchResponse = new GitHubSearchResponse(100, false, List.of());
+        EnrichedSearchResponse searchResponse = new EnrichedSearchResponse(100, false, List.of(), 0, 0);
         when(gitHubApiClient.searchRepositories(isNull(), isNull(), eq(1), eq(30)))
                 .thenReturn(searchResponse);
-        when(scoringService.scoreAndRank(any()))
+        when(scoringService.scoreAndRank(any(), anyInt(), anyInt()))
                 .thenReturn(List.of());
 
         PaginatedResponse<ScoredRepository> result = repositoryService.searchAndRank(null, null, 1, 30);
