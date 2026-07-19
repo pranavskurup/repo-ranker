@@ -6,6 +6,15 @@ app:
   version: @project.version@
   build-time: @timestamp@
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
 spring:
   cache:
     type: simple
