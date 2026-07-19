@@ -1,5 +1,9 @@
 package com.reporanker.exception;
 
+/**
+ * Runtime exception thrown when the GitHub API returns an HTTP error response.
+ * Carries the original HTTP status code for mapping to appropriate client responses.
+ */
 public class GitHubApiException extends RuntimeException {
 
     private final int statusCode;

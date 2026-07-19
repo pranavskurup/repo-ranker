@@ -9,6 +9,11 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 
+/**
+ * Computes popularity scores for GitHub repositories using a weighted formula:
+ * stars (50%), forks (30%), and recency (20%) with exponential decay.
+ * Scores are normalized via log-scaling and returned in descending order.
+ */
 @Service
 public class ScoringService {
 

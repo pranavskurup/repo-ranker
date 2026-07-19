@@ -12,6 +12,10 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.List;
 
+/**
+ * Orchestrates the repository search pipeline: fetches repositories from GitHub,
+ * applies scoring via {@link ScoringService}, and returns paginated results.
+ */
 @Service
 public class RepositoryService {
 

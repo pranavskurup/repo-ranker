@@ -15,6 +15,11 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.time.Instant;
 import java.util.List;
 
+/**
+ * Client for the GitHub Search API. Fetches repositories with optional
+ * language and date filters, sorted by stars in descending order.
+ * Handles HTTP errors and rate limiting with custom exceptions.
+ */
 @Component
 public class GitHubApiClient {
 

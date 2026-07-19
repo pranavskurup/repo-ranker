@@ -13,6 +13,10 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import java.time.Instant;
 import java.util.Map;
 
+/**
+ * Global exception handler translating application exceptions into
+ * structured JSON error responses with appropriate HTTP status codes.
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 

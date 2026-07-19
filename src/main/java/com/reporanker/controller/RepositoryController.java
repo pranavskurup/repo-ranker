@@ -11,6 +11,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
 
+/**
+ * REST controller for searching and ranking GitHub repositories.
+ * Supports filtering by language and creation date, with paginated results.
+ */
 @RestController
 @RequestMapping("/api/v1/repositories")
 public class RepositoryController {

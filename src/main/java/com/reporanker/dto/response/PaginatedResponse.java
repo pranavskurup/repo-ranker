@@ -4,6 +4,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
+/**
+ * Generic paginated response wrapper containing items and pagination metadata.
+ *
+ * @param <T> the type of items in the response
+ */
 public record PaginatedResponse<T>(
         List<T> items,
         @JsonProperty("total_count") int totalCount,
