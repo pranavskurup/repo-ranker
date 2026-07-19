@@ -1,0 +1,33 @@
+server:
+  port: 8080
+
+app:
+  name: @project.name@
+  version: @project.version@
+  build-time: @timestamp@
+  cache:
+    ttl-minutes: 5
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+spring:
+  cache:
+    type: simple
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+github:
+  api:
+    base-url: https://api.github.com
+    token: ${GITHUB_TOKEN:}

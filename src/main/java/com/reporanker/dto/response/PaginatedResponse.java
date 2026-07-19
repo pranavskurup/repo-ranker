@@ -1,0 +1,34 @@
+package com.reporanker.dto.response;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import java.util.List;
+
+/**
+ * Generic paginated response wrapper containing items and pagination metadata.
+ *
+ * @param <T> the type of items in the response
+ */
+public record PaginatedResponse<T>(
+        List<T> items,
+        @JsonProperty("total_count") int totalCount,
+        @JsonProperty("current_page") int currentPage,
+        @JsonProperty("per_page") int perPage,
+        @JsonProperty("total_pages") int totalPages,
+        @JsonProperty("has_next") boolean hasNext,
+        @JsonProperty("has_previous") boolean hasPrevious
+) {
+    /**
+     * Creates a paginated response with computed pagination metadata.
+     *
+     * @param items       the list of items for the current page
+     * @param totalCount  the total number of matching items
+     * @param currentPage the current page number (1-based)
+     * @param perPage     the number of items per page
+     * @return a new PaginatedResponse with computed totalPages, hasNext, and hasPrevious
+     */
+    public static <T> PaginatedResponse<T> of(List<T> items, int totalCount, int currentPage, int perPage) {
+        int totalPages = perPage > 0 ? (int) Math.ceil((double) totalCount / perPage) : 0;
+        return new PaginatedResponse<>(items, totalCount, currentPage, perPage, totalPages, currentPage < totalPages, currentPage > 1);
+    }
+}
