@@ -5,6 +5,9 @@ app:
   name: @project.name@
   version: @project.version@
   build-time: @timestamp@
+  scoring:
+    max-stars: 100000
+    max-forks: 10000
 
 management:
   endpoints:

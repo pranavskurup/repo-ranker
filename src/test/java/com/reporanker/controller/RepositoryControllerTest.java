@@ -2,6 +2,8 @@ package com.reporanker.controller;
 
 import com.reporanker.dto.response.PaginatedResponse;
 import com.reporanker.dto.response.ScoredRepository;
+import com.reporanker.exception.GitHubApiException;
+import com.reporanker.exception.GitHubRateLimitExceededException;
 import com.reporanker.service.RepositoryService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -150,5 +152,66 @@ class RepositoryControllerTest {
                 .andExpect(jsonPath("$.total_pages").value(6))
                 .andExpect(jsonPath("$.has_next").value(true))
                 .andExpect(jsonPath("$.has_previous").value(true));
+    }
+
+    @Test
+    void searchShouldReturn502WhenGitHubApiReturns404() throws Exception {
+        when(repositoryService.searchAndRank(isNull(), isNull(), eq(1), eq(30)))
+                .thenThrow(new GitHubApiException("GitHub API error: Not Found", 404));
+
+        mockMvc.perform(get("/api/v1/repositories"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("github_api_error"))
+                .andExpect(jsonPath("$.status").value(404));
+    }
+
+    @Test
+    void searchShouldReturn429WhenRateLimitExceeded() throws Exception {
+        when(repositoryService.searchAndRank(isNull(), isNull(), eq(1), eq(30)))
+                .thenThrow(new GitHubRateLimitExceededException(
+                        "rate limit exceeded", Instant.now().plusSeconds(300)));
+
+        mockMvc.perform(get("/api/v1/repositories"))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.error").value("rate_limit_exceeded"))
+                .andExpect(jsonPath("$.status").value(429))
+                .andExpect(jsonPath("$.retry_after").exists())
+                .andExpect(header().exists("Retry-After"));
+    }
+
+    @Test
+    void searchShouldReturn502WhenGitHubApiReturns500() throws Exception {
+        when(repositoryService.searchAndRank(isNull(), isNull(), eq(1), eq(30)))
+                .thenThrow(new GitHubApiException("GitHub API error: Internal Server Error", 500));
+
+        mockMvc.perform(get("/api/v1/repositories"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.error").value("github_api_error"))
+                .andExpect(jsonPath("$.status").value(500));
+    }
+
+    @Test
+    void searchShouldReturn422WhenGitHubApiReturns422() throws Exception {
+        when(repositoryService.searchAndRank(isNull(), isNull(), eq(1), eq(30)))
+                .thenThrow(new GitHubApiException("GitHub API error: Validation Failed", 422));
+
+        mockMvc.perform(get("/api/v1/repositories"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error").value("github_api_error"))
+                .andExpect(jsonPath("$.status").value(422));
+    }
+
+    @Test
+    void searchShouldReturn400ForInvalidPageParam() throws Exception {
+        mockMvc.perform(get("/api/v1/repositories")
+                        .param("page", "not-a-number"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void searchShouldReturn400ForInvalidPerPageParam() throws Exception {
+        mockMvc.perform(get("/api/v1/repositories")
+                        .param("perPage", "abc"))
+                .andExpect(status().isBadRequest());
     }
 }

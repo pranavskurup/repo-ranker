@@ -5,6 +5,8 @@ import com.reporanker.dto.github.GitHubRepository;
 import com.reporanker.dto.github.GitHubSearchResponse;
 import com.reporanker.dto.response.PaginatedResponse;
 import com.reporanker.dto.response.ScoredRepository;
+import com.reporanker.exception.GitHubApiException;
+import com.reporanker.exception.GitHubRateLimitExceededException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,6 +18,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -112,5 +115,53 @@ class RepositoryServiceTest {
 
         assertThat(result.totalCount()).isEqualTo(100);
         assertThat(result.totalPages()).isEqualTo(4);
+    }
+
+    @Test
+    void searchAndRankShouldPropagateGitHubApiException() {
+        when(gitHubApiClient.searchRepositories(isNull(), isNull(), eq(1), eq(30)))
+                .thenThrow(new GitHubApiException("GitHub API error: Not Found", 404));
+
+        assertThatThrownBy(() -> repositoryService.searchAndRank(null, null, 1, 30))
+                .isInstanceOf(GitHubApiException.class)
+                .hasMessageContaining("Not Found")
+                .satisfies(ex -> assertThat(((GitHubApiException) ex).getStatusCode()).isEqualTo(404));
+    }
+
+    @Test
+    void searchAndRankShouldPropagateRateLimitExceeded() {
+        when(gitHubApiClient.searchRepositories(isNull(), isNull(), eq(1), eq(30)))
+                .thenThrow(new GitHubRateLimitExceededException(
+                        "rate limit exceeded", Instant.now().plusSeconds(300)));
+
+        assertThatThrownBy(() -> repositoryService.searchAndRank(null, null, 1, 30))
+                .isInstanceOf(GitHubRateLimitExceededException.class)
+                .hasMessageContaining("rate limit exceeded")
+                .satisfies(ex -> {
+                    GitHubRateLimitExceededException rateEx = (GitHubRateLimitExceededException) ex;
+                    assertThat(rateEx.getStatusCode()).isEqualTo(403);
+                    assertThat(rateEx.getRetryAfter()).isAfter(Instant.now());
+                });
+    }
+
+    @Test
+    void searchAndRankShouldPropagateApiExceptionOn422() {
+        when(gitHubApiClient.searchRepositories(eq("Java"), isNull(), eq(1), eq(30)))
+                .thenThrow(new GitHubApiException("GitHub API error: Validation Failed", 422));
+
+        assertThatThrownBy(() -> repositoryService.searchAndRank("Java", null, 1, 30))
+                .isInstanceOf(GitHubApiException.class)
+                .hasMessageContaining("Validation Failed")
+                .satisfies(ex -> assertThat(((GitHubApiException) ex).getStatusCode()).isEqualTo(422));
+    }
+
+    @Test
+    void searchAndRankShouldPropagateApiExceptionOn500() {
+        when(gitHubApiClient.searchRepositories(isNull(), isNull(), eq(1), eq(30)))
+                .thenThrow(new GitHubApiException("GitHub API error: Internal Server Error", 500));
+
+        assertThatThrownBy(() -> repositoryService.searchAndRank(null, null, 1, 30))
+                .isInstanceOf(GitHubApiException.class)
+                .satisfies(ex -> assertThat(((GitHubApiException) ex).getStatusCode()).isEqualTo(500));
     }
 }

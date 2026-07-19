@@ -1,5 +1,6 @@
 package com.reporanker.service;
 
+import com.reporanker.config.ScoringProperties;
 import com.reporanker.dto.github.GitHubRepository;
 import com.reporanker.dto.response.ScoredRepository;
 import org.junit.jupiter.api.Test;
@@ -12,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ScoringServiceTest {
 
-    private final ScoringService scoringService = new ScoringService();
+    private final ScoringService scoringService = new ScoringService(new ScoringProperties(100_000, 10_000));
 
     private GitHubRepository createRepo(int stars, int forks, int daysAgo) {
         Instant now = Instant.now();
