@@ -1,5 +1,6 @@
 package com.reporanker.controller;
 
+import com.reporanker.dto.response.PaginatedResponse;
 import com.reporanker.dto.response.ScoredRepository;
 import com.reporanker.service.RepositoryService;
 import org.junit.jupiter.api.Test;
@@ -33,37 +34,48 @@ class RepositoryControllerTest {
                 now.minus(365, ChronoUnit.DAYS), now.minus(10, ChronoUnit.DAYS), score);
     }
 
+    private PaginatedResponse<ScoredRepository> paginated(List<ScoredRepository> items, int totalCount, int page, int perPage) {
+        return PaginatedResponse.of(items, totalCount, page, perPage);
+    }
+
     @Test
     void searchShouldReturnScoredRepositories() throws Exception {
         ScoredRepository repo1 = createScored(1L, "repo-1", 92.5);
         ScoredRepository repo2 = createScored(2L, "repo-2", 85.3);
         when(repositoryService.searchAndRank(isNull(), isNull(), eq(1), eq(30)))
-                .thenReturn(List.of(repo1, repo2));
+                .thenReturn(paginated(List.of(repo1, repo2), 2, 1, 30));
 
         mockMvc.perform(get("/api/v1/repositories"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].name").value("repo-1"))
-                .andExpect(jsonPath("$[0].score").value(92.5))
-                .andExpect(jsonPath("$[1].name").value("repo-2"));
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items.length()").value(2))
+                .andExpect(jsonPath("$.items[0].name").value("repo-1"))
+                .andExpect(jsonPath("$.items[0].score").value(92.5))
+                .andExpect(jsonPath("$.items[1].name").value("repo-2"))
+                .andExpect(jsonPath("$.total_count").value(2))
+                .andExpect(jsonPath("$.current_page").value(1))
+                .andExpect(jsonPath("$.per_page").value(30))
+                .andExpect(jsonPath("$.total_pages").value(1))
+                .andExpect(jsonPath("$.has_next").value(false))
+                .andExpect(jsonPath("$.has_previous").value(false));
     }
 
     @Test
     void searchShouldPassLanguageParam() throws Exception {
         when(repositoryService.searchAndRank(eq("Java"), isNull(), eq(1), eq(30)))
-                .thenReturn(List.of());
+                .thenReturn(paginated(List.of(), 0, 1, 30));
 
         mockMvc.perform(get("/api/v1/repositories").param("language", "Java"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items.length()").value(0))
+                .andExpect(jsonPath("$.total_count").value(0));
     }
 
     @Test
     void searchShouldPassCreatedAfterParam() throws Exception {
         when(repositoryService.searchAndRank(isNull(), any(Instant.class), eq(1), eq(30)))
-                .thenReturn(List.of());
+                .thenReturn(paginated(List.of(), 0, 1, 30));
 
         mockMvc.perform(get("/api/v1/repositories")
                         .param("createdAfter", "2024-01-01T00:00:00Z"))
@@ -73,43 +85,46 @@ class RepositoryControllerTest {
     @Test
     void searchShouldPassPaginationParams() throws Exception {
         when(repositoryService.searchAndRank(isNull(), isNull(), eq(2), eq(10)))
-                .thenReturn(List.of());
+                .thenReturn(paginated(List.of(), 0, 2, 10));
 
         mockMvc.perform(get("/api/v1/repositories")
                         .param("page", "2")
                         .param("perPage", "10"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.current_page").value(2))
+                .andExpect(jsonPath("$.per_page").value(10));
     }
 
     @Test
     void searchShouldReturnEmptyArrayWhenNoResults() throws Exception {
         when(repositoryService.searchAndRank(isNull(), isNull(), eq(1), eq(30)))
-                .thenReturn(List.of());
+                .thenReturn(paginated(List.of(), 0, 1, 30));
 
         mockMvc.perform(get("/api/v1/repositories"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(0));
+                .andExpect(jsonPath("$.items").isArray())
+                .andExpect(jsonPath("$.items.length()").value(0))
+                .andExpect(jsonPath("$.total_count").value(0));
     }
 
     @Test
     void searchShouldReturnAllRepositoryFields() throws Exception {
         ScoredRepository repo = createScored(1L, "test-repo", 78.9);
         when(repositoryService.searchAndRank(isNull(), isNull(), eq(1), eq(30)))
-                .thenReturn(List.of(repo));
+                .thenReturn(paginated(List.of(repo), 1, 1, 30));
 
         mockMvc.perform(get("/api/v1/repositories"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1))
-                .andExpect(jsonPath("$[0].name").value("test-repo"))
-                .andExpect(jsonPath("$[0].full_name").value("owner/test-repo"))
-                .andExpect(jsonPath("$[0].html_url").value("https://github.com/owner/test-repo"))
-                .andExpect(jsonPath("$[0].stars").value(100))
-                .andExpect(jsonPath("$[0].forks").value(10))
-                .andExpect(jsonPath("$[0].language").value("Java"))
-                .andExpect(jsonPath("$[0].created_at").exists())
-                .andExpect(jsonPath("$[0].updated_at").exists())
-                .andExpect(jsonPath("$[0].score").value(78.9));
+                .andExpect(jsonPath("$.items[0].id").value(1))
+                .andExpect(jsonPath("$.items[0].name").value("test-repo"))
+                .andExpect(jsonPath("$.items[0].full_name").value("owner/test-repo"))
+                .andExpect(jsonPath("$.items[0].html_url").value("https://github.com/owner/test-repo"))
+                .andExpect(jsonPath("$.items[0].stars").value(100))
+                .andExpect(jsonPath("$.items[0].forks").value(10))
+                .andExpect(jsonPath("$.items[0].language").value("Java"))
+                .andExpect(jsonPath("$.items[0].created_at").exists())
+                .andExpect(jsonPath("$.items[0].updated_at").exists())
+                .andExpect(jsonPath("$.items[0].score").value(78.9));
     }
 
     @Test
@@ -117,5 +132,23 @@ class RepositoryControllerTest {
         mockMvc.perform(get("/api/v1/repositories")
                         .param("createdAfter", "invalid-date"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void searchShouldReturnPaginationMetadataForMultiplePages() throws Exception {
+        ScoredRepository repo = createScored(1L, "repo-1", 90.0);
+        when(repositoryService.searchAndRank(isNull(), isNull(), eq(2), eq(10)))
+                .thenReturn(paginated(List.of(repo), 55, 2, 10));
+
+        mockMvc.perform(get("/api/v1/repositories")
+                        .param("page", "2")
+                        .param("perPage", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total_count").value(55))
+                .andExpect(jsonPath("$.current_page").value(2))
+                .andExpect(jsonPath("$.per_page").value(10))
+                .andExpect(jsonPath("$.total_pages").value(6))
+                .andExpect(jsonPath("$.has_next").value(true))
+                .andExpect(jsonPath("$.has_previous").value(true));
     }
 }

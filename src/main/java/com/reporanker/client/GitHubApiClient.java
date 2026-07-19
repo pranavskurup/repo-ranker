@@ -30,7 +30,7 @@ public class GitHubApiClient {
                 .build();
     }
 
-    public List<GitHubRepository> searchRepositories(String language, Instant createdAfter, int page, int perPage) {
+    public GitHubSearchResponse searchRepositories(String language, Instant createdAfter, int page, int perPage) {
         String query = buildQuery(language, createdAfter);
         String uri = UriComponentsBuilder.fromPath("/search/repositories")
                 .queryParam("q", query)
@@ -52,12 +52,16 @@ public class GitHubApiClient {
                 .retrieve()
                 .body(GitHubSearchResponse.class);
 
-        if (response == null || response.items() == null) {
-            return List.of();
+        if (response == null) {
+            return new GitHubSearchResponse(0, false, List.of());
+        }
+
+        if (response.items() == null) {
+            return new GitHubSearchResponse(response.totalCount(), false, List.of());
         }
 
         log.debug("Found {} repositories (total: {})", response.items().size(), response.totalCount());
-        return response.items();
+        return response;
     }
 
     private String buildQuery(String language, Instant createdAfter) {

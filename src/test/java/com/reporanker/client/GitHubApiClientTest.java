@@ -54,22 +54,24 @@ class GitHubApiClientTest {
         GitHubSearchResponse searchResponse = new GitHubSearchResponse(1, false, List.of(repo));
         when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(searchResponse);
 
-        List<GitHubRepository> results = gitHubApiClient.searchRepositories("Java",
+        GitHubSearchResponse result = gitHubApiClient.searchRepositories("Java",
                 Instant.parse("2024-01-01T00:00:00Z"), 1, 30);
 
-        assertThat(results).hasSize(1);
-        assertThat(results.getFirst().name()).isEqualTo("test-repo");
-        assertThat(results.getFirst().stars()).isEqualTo(100);
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().getFirst().name()).isEqualTo("test-repo");
+        assertThat(result.items().getFirst().stars()).isEqualTo(100);
+        assertThat(result.totalCount()).isEqualTo(1);
     }
 
     @Test
     void searchRepositoriesShouldReturnEmptyListWhenResponseIsNull() {
         when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(null);
 
-        List<GitHubRepository> results = gitHubApiClient.searchRepositories("Java",
+        GitHubSearchResponse result = gitHubApiClient.searchRepositories("Java",
                 Instant.parse("2024-01-01T00:00:00Z"), 1, 30);
 
-        assertThat(results).isEmpty();
+        assertThat(result.items()).isEmpty();
+        assertThat(result.totalCount()).isEqualTo(0);
     }
 
     @Test
@@ -77,10 +79,10 @@ class GitHubApiClientTest {
         GitHubSearchResponse searchResponse = new GitHubSearchResponse(0, false, null);
         when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(searchResponse);
 
-        List<GitHubRepository> results = gitHubApiClient.searchRepositories("Java",
+        GitHubSearchResponse result = gitHubApiClient.searchRepositories("Java",
                 Instant.parse("2024-01-01T00:00:00Z"), 1, 30);
 
-        assertThat(results).isEmpty();
+        assertThat(result.items()).isEmpty();
     }
 
     @Test
@@ -148,12 +150,13 @@ class GitHubApiClientTest {
         GitHubSearchResponse searchResponse = new GitHubSearchResponse(2, false, List.of(repo1, repo2));
         when(responseSpec.body(GitHubSearchResponse.class)).thenReturn(searchResponse);
 
-        List<GitHubRepository> results = gitHubApiClient.searchRepositories("Java",
+        GitHubSearchResponse result = gitHubApiClient.searchRepositories("Java",
                 Instant.parse("2024-01-01T00:00:00Z"), 1, 30);
 
-        assertThat(results).hasSize(2);
-        assertThat(results.get(0).name()).isEqualTo("repo-1");
-        assertThat(results.get(1).name()).isEqualTo("repo-2");
+        assertThat(result.items()).hasSize(2);
+        assertThat(result.items().get(0).name()).isEqualTo("repo-1");
+        assertThat(result.items().get(1).name()).isEqualTo("repo-2");
+        assertThat(result.totalCount()).isEqualTo(2);
     }
 
     @Test

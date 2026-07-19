@@ -2,6 +2,8 @@ package com.reporanker.service;
 
 import com.reporanker.client.GitHubApiClient;
 import com.reporanker.dto.github.GitHubRepository;
+import com.reporanker.dto.github.GitHubSearchResponse;
+import com.reporanker.dto.response.PaginatedResponse;
 import com.reporanker.dto.response.ScoredRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,41 +46,71 @@ class RepositoryServiceTest {
                 "https://github.com/owner/repo-1", 100, 10, "Java",
                 repo.createdAt(), repo.updatedAt(), 85.5);
 
+        GitHubSearchResponse searchResponse = new GitHubSearchResponse(1, false, List.of(repo));
         when(gitHubApiClient.searchRepositories(eq("Java"), eq(createdAfter), eq(1), eq(30)))
-                .thenReturn(List.of(repo));
+                .thenReturn(searchResponse);
         when(scoringService.scoreAndRank(List.of(repo)))
                 .thenReturn(List.of(scored));
 
-        List<ScoredRepository> result = repositoryService.searchAndRank("Java", createdAfter, 1, 30);
+        PaginatedResponse<ScoredRepository> result = repositoryService.searchAndRank("Java", createdAfter, 1, 30);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.getFirst().score()).isEqualTo(85.5);
+        assertThat(result.items()).hasSize(1);
+        assertThat(result.items().getFirst().score()).isEqualTo(85.5);
+        assertThat(result.totalCount()).isEqualTo(1);
+        assertThat(result.currentPage()).isEqualTo(1);
+        assertThat(result.totalPages()).isEqualTo(1);
+        assertThat(result.hasNext()).isFalse();
+        assertThat(result.hasPrevious()).isFalse();
         verify(gitHubApiClient).searchRepositories("Java", createdAfter, 1, 30);
         verify(scoringService).scoreAndRank(List.of(repo));
     }
 
     @Test
     void searchAndRankShouldReturnEmptyListWhenNoResults() {
+        GitHubSearchResponse searchResponse = new GitHubSearchResponse(0, false, List.of());
         when(gitHubApiClient.searchRepositories(isNull(), isNull(), eq(1), eq(30)))
-                .thenReturn(List.of());
+                .thenReturn(searchResponse);
         when(scoringService.scoreAndRank(List.of()))
                 .thenReturn(List.of());
 
-        List<ScoredRepository> result = repositoryService.searchAndRank(null, null, 1, 30);
+        PaginatedResponse<ScoredRepository> result = repositoryService.searchAndRank(null, null, 1, 30);
 
-        assertThat(result).isEmpty();
+        assertThat(result.items()).isEmpty();
+        assertThat(result.totalCount()).isEqualTo(0);
+        assertThat(result.totalPages()).isEqualTo(0);
     }
 
     @Test
     void searchAndRankShouldPassPaginationParams() {
         Instant createdAfter = Instant.now().minus(30, ChronoUnit.DAYS);
+        GitHubSearchResponse searchResponse = new GitHubSearchResponse(55, false, List.of());
         when(gitHubApiClient.searchRepositories(eq("Python"), eq(createdAfter), eq(2), eq(10)))
-                .thenReturn(List.of());
+                .thenReturn(searchResponse);
         when(scoringService.scoreAndRank(any()))
                 .thenReturn(List.of());
 
-        repositoryService.searchAndRank("Python", createdAfter, 2, 10);
+        PaginatedResponse<ScoredRepository> result = repositoryService.searchAndRank("Python", createdAfter, 2, 10);
 
+        assertThat(result.currentPage()).isEqualTo(2);
+        assertThat(result.perPage()).isEqualTo(10);
+        assertThat(result.totalCount()).isEqualTo(55);
+        assertThat(result.totalPages()).isEqualTo(6);
+        assertThat(result.hasNext()).isTrue();
+        assertThat(result.hasPrevious()).isTrue();
         verify(gitHubApiClient).searchRepositories("Python", createdAfter, 2, 10);
+    }
+
+    @Test
+    void searchAndRankShouldComputeTotalPagesCorrectly() {
+        GitHubSearchResponse searchResponse = new GitHubSearchResponse(100, false, List.of());
+        when(gitHubApiClient.searchRepositories(isNull(), isNull(), eq(1), eq(30)))
+                .thenReturn(searchResponse);
+        when(scoringService.scoreAndRank(any()))
+                .thenReturn(List.of());
+
+        PaginatedResponse<ScoredRepository> result = repositoryService.searchAndRank(null, null, 1, 30);
+
+        assertThat(result.totalCount()).isEqualTo(100);
+        assertThat(result.totalPages()).isEqualTo(4);
     }
 }

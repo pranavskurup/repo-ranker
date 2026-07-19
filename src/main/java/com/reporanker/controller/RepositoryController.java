@@ -1,5 +1,6 @@
 package com.reporanker.controller;
 
+import com.reporanker.dto.response.PaginatedResponse;
 import com.reporanker.dto.response.ScoredRepository;
 import com.reporanker.service.RepositoryService;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -9,7 +10,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/repositories")
@@ -22,7 +22,7 @@ public class RepositoryController {
     }
 
     @GetMapping
-    public List<ScoredRepository> search(
+    public PaginatedResponse<ScoredRepository> search(
             @RequestParam(required = false) String language,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant createdAfter,
             @RequestParam(defaultValue = "1") int page,
