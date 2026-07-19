@@ -6,6 +6,7 @@ import com.reporanker.dto.response.PaginatedResponse;
 import com.reporanker.dto.response.ScoredRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -36,6 +37,7 @@ public class RepositoryService {
 
     /**
      * Searches GitHub repositories and returns scored, paginated results.
+     * Results are cached for 5 minutes to reduce GitHub API calls.
      *
      * @param language    filter by programming language, or null for all languages
      * @param createdAfter filter by creation date, or null for no date restriction
@@ -43,6 +45,7 @@ public class RepositoryService {
      * @param perPage     the number of results per page
      * @return paginated response containing scored repositories and metadata
      */
+    @Cacheable("repositories")
     public PaginatedResponse<ScoredRepository> searchAndRank(String language, Instant createdAfter, int page, int perPage) {
         log.debug("Searching repositories: language={}, createdAfter={}, page={}, perPage={}",
                 language, createdAfter, page, perPage);

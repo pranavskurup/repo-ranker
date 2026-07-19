@@ -5,6 +5,8 @@ app:
   name: @project.name@
   version: @project.version@
   build-time: @timestamp@
+  cache:
+    ttl-minutes: 5
 
 management:
   endpoints:
